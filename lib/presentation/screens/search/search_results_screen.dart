@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mytravaly_flutter_task/app_router.dart';
 import '../../../logic/blocs/search/search_bloc.dart';
 import '../../../logic/blocs/search/search_event.dart';
 import '../../../logic/blocs/search/search_state.dart';
@@ -28,6 +27,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   final _scrollController = ScrollController();
   late SearchBloc _bloc;
 
+  bool _autoLoading = false; // 👈 prevent infinite pagination loop
+
   @override
   void initState() {
     super.initState();
@@ -43,16 +44,22 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
   }
 
-  /// 🔹 Smart pagination trigger — load more if content is short
+  /// 🔹 Smart pagination trigger — only once per short list
   void _checkIfNeedMoreData(SearchState state) {
-    if (state is SearchLoaded && state.hasMore) {
+    if (state is SearchLoaded && state.hasMore && !_autoLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final position = _scrollController.position;
-        // if content height is smaller than screen, trigger load more automatically
+
         if (position.maxScrollExtent <= position.viewportDimension) {
+          _autoLoading = true; // prevent multiple triggers
           _bloc.add(SearchLoadMore());
         }
       });
+    }
+
+    // ✅ reset flag once data loaded successfully
+    if (state is SearchLoaded && !_scrollController.hasClients) {
+      _autoLoading = false;
     }
   }
 
@@ -63,9 +70,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Widget _buildBottomLoader() => const Padding(
-        padding: EdgeInsets.all(12),
-        child: Center(child: CircularProgressIndicator()),
-      );
+    padding: EdgeInsets.all(12),
+    child: Center(child: CircularProgressIndicator()),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +90,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         ),
         automaticallyImplyLeading: true,
         title: Text(
-            'Results for "${Uri.decodeComponent(widget.display ?? widget.query)}"'),
+          'Results for "${Uri.decodeComponent(widget.display ?? widget.query)}"',
+        ),
       ),
       body: BlocConsumer<SearchBloc, SearchState>(
         listener: (context, state) => _checkIfNeedMoreData(state),
@@ -94,8 +102,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
           if (state is SearchError) {
             return Center(
-              child: Text('Error: ${state.message}',
-                  style: const TextStyle(color: Colors.red)),
+              child: Text(
+                'Error: ${state.message}',
+                style: const TextStyle(color: Colors.red),
+              ),
             );
           }
 
@@ -107,7 +117,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
             return ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.only(bottom: 32,top: 8),
+              padding: const EdgeInsets.only(bottom: 32, top: 8),
               itemCount: results.length + (state.hasMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index >= results.length) {

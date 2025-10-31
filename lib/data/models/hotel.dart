@@ -20,27 +20,29 @@ class Hotel {
   });
 
   factory Hotel.fromJson(Map<String, dynamic> json) {
-    // Extract property image safely
+    // Extract image URL
     final imageData = json['propertyImage'];
     String? imageUrl;
 
     if (imageData != null) {
       if (imageData is Map && imageData['fullUrl'] != null) {
         imageUrl = imageData['fullUrl'];
-      } else if (imageData['location'] != null &&
-          imageData['imageName'] != null) {
+      } else if (imageData['location'] != null && imageData['imageName'] != null) {
         imageUrl = '${imageData['location']}${imageData['imageName']}';
       }
     }
+
+    // Extract address
+    final address = json['propertyAddress'] as Map<String, dynamic>? ?? {};
 
     return Hotel(
       id: json['propertyCode'] ?? '',
       name: json['propertyName'] ?? 'Unknown',
       imageUrl: imageUrl,
       code: json['propertyCode'] ?? '',
-      city: json['city'] ?? '',
-      state: json['state'] ?? '',
-      country: json['country'] ?? '',
+      city: address['city'] ?? '',
+      state: address['state'] ?? '',
+      country: address['country'] ?? '',
       propertyUrl: json['propertyUrl'] ?? '',
     );
   }
